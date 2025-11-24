@@ -1,21 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-// As vari??veis v??m do .env (local) ou do painel do Vercel:
-// VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
-// VITE_SUPABASE_ANON_KEY=CHAVE_ANON_PUBLIC
-// VITE_ALLOWED_EMAILS=seuemail@exemplo.com,emaildaesposa@exemplo.com
-
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
 const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 const allowedEmails = String(import.meta.env.VITE_ALLOWED_EMAILS || '')
   .split(',')
-  .map(s => s.trim().toLowerCase())
+  .map((s) => s.trim().toLowerCase())
 
 const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnon)
-
-// IMPORTANTE: os valores de tipo/pessoa continuam em ingl??s
-// para bater com o que j?? est?? salvo no banco (Shared / Per Person / You / Wife)
 
 type TipoDespesa = 'Shared' | 'Per Person'
 type Pessoa = 'You' | 'Wife'
@@ -26,7 +18,7 @@ type Despesa = {
   amount: number
   type: TipoDespesa
   paid_by: Pessoa
-  user_id: string
+  user_id: string | null
   created_at: string
 }
 
@@ -38,23 +30,31 @@ function labelTipo(type: TipoDespesa) {
 }
 
 function labelPessoa(p: Pessoa) {
-  return p === 'You' ? 'Victor' : 'Elaine'
+  return p === 'You' ? 'Voce' : 'Ela'
 }
 
 function Segmented<T extends string>({
-  value, onChange, options,
-}: { value: T; onChange: (v: T)=>void; options: { value: T; label: string }[] }) {
+  value,
+  onChange,
+  options,
+}: {
+  value: T
+  onChange: (v: T) => void
+  options: { value: T; label: string }[]
+}) {
   return (
     <div className="grid grid-cols-2 bg-zinc-100 rounded-xl p-1">
-      {options.map(o => (
+      {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
           className={[
             'px-3 py-1 text-sm rounded-lg transition',
-            value===o.value ? 'bg-white shadow font-medium' : 'text-zinc-500'
+            value === o.value ? 'bg-white shadow font-medium' : 'text-zinc-500',
           ].join(' ')}
-        >{o.label}</button>
+        >
+          {o.label}
+        </button>
       ))}
     </div>
   )
@@ -72,12 +72,12 @@ export default function App() {
   const [pagoPor, setPagoPor] = useState<Pessoa>('You')
   const [editando, setEditando] = useState<Despesa | null>(null)
 
-  // Sess??o
   useEffect(() => {
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      const currentEmail = session?.user?.email?.toLowerCase() || null
+    ;(async () => {
+      const { data } = await supabase.auth.getSession()
+      const currentEmail = data.session?.user?.email?.toLowerCase() || null
       setSessionEmail(currentEmail)
+
       supabase.auth.onAuthStateChange((_event, s) => {
         const em = s?.user?.email?.toLowerCase() || null
         setSessionEmail(em)
@@ -85,32 +85,46 @@ export default function App() {
     })()
   }, [])
 
-  // Realtime
-  useEffect(() => {
-    if (!sessionEmail) return
-    buscarDespesas()
-    const channel = supabase
-      .channel('expenses-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => {
-        buscarDespesas()
-      })
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [sessionEmail])
-
   const buscarDespesas = async () => {
     const { data, error } = await supabase
       .from('expenses')
       .select('*')
       .order('created_at', { ascending: false })
-    if (error) console.error(error)
-    else setItens(data as Despesa[])
+
+    if (error) {
+      console.error('Erro ao buscar despesas', error)
+      return
+    }
+
+    setItens((data || []) as Despesa[])
   }
 
-  // Saldo (positivo: Ela deve para voc??; negativo: Voc?? deve para ela)
+  useEffect(() => {
+    if (!sessionEmail) return
+
+    buscarDespesas()
+
+    const channel = supabase
+      .channel('expenses-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'expenses' },
+        () => {
+          buscarDespesas()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [sessionEmail])
+
   const saldo = useMemo(() => {
-    let totalVoce = 0, totalEla = 0
-    itens.forEach(e => {
+    let totalVoce = 0
+    let totalEla = 0
+
+    itens.forEach((e) => {
       if (e.type === 'Shared') {
         if (e.paid_by === 'You') totalVoce += e.amount / 2
         else totalEla += e.amount / 2
@@ -119,10 +133,11 @@ export default function App() {
         else totalEla += e.amount
       }
     })
+
     return totalVoce - totalEla
   }, [itens])
 
-  const podeSalvar = nome.trim() && parseValor(valor) !== null
+  const podeSalvar = nome.trim() !== '' && parseValor(valor) !== null
 
   function parseValor(raw: string) {
     const v = raw.replace(',', '.')
@@ -137,27 +152,55 @@ export default function App() {
     if (editando) {
       const { error } = await supabase
         .from('expenses')
-        .update({ name: nome, amount: v, type: tipo, paid_by: pagoPor })
+        .update({
+          name: nome,
+          amount: v,
+          type: tipo,
+          paid_by: pagoPor,
+        })
         .eq('id', editando.id)
-      if (error) return alert(error.message)
+
+      if (error) {
+        alert(error.message)
+        return
+      }
+
       setEditando(null)
     } else {
-      const { error } = await supabase
-        .from('expenses')
-        .insert({ name: nome, amount: v, type: tipo, paid_by: pagoPor })
-      if (error) return alert(error.message)
+      const { data: sessionData } = await supabase.auth.getSession()
+      const userId = sessionData.session?.user?.id ?? null
+
+      const { error } = await supabase.from('expenses').insert({
+        name: nome,
+        amount: v,
+        type: tipo,
+        paid_by: pagoPor,
+        user_id: userId,
+      })
+
+      if (error) {
+        alert(error.message)
+        return
+      }
     }
 
     setNome('')
     setValor('')
     setTipo('Shared')
     setPagoPor('You')
+
+    // garante atualizar lista mesmo se o realtime nao estiver ativo
+    buscarDespesas()
   }
 
   async function remover(id: string) {
     if (!confirm('Apagar esta despesa?')) return
     const { error } = await supabase.from('expenses').delete().eq('id', id)
-    if (error) alert(error.message)
+    if (error) {
+      alert(error.message)
+      return
+    }
+    buscarDespesas()
   }
 
   function iniciarEdicao(e: Despesa) {
@@ -171,11 +214,12 @@ export default function App() {
 
   async function limparTudo() {
     if (!confirm('Tem certeza que deseja limpar todas as despesas?')) return
-    const { error } = await supabase
-      .from('expenses')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000')
-    if (error) alert(error.message)
+    const { error } = await supabase.from('expenses').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    if (error) {
+      alert(error.message)
+      return
+    }
+    buscarDespesas()
   }
 
   const entrar = async () => {
@@ -184,21 +228,24 @@ export default function App() {
       alert('Acesso restrito. Use um e-mail autorizado.')
       return
     }
+
     setCarregando(true)
+
     const { error } = await supabase.auth.signInWithOtp({
       email: e,
-      options: { emailRedirectTo: window.location.origin }
+      options: { emailRedirectTo: window.location.origin },
     })
+
     setCarregando(false)
+
     if (error) alert(error.message)
-    else alert('Enviamos um link de acesso para seu e-mail. Abra no mesmo dispositivo.')
+    else alert('Enviamos um link de acesso para o seu e-mail.')
   }
 
   const sair = async () => {
     await supabase.auth.signOut()
   }
 
-  // Tela de login
   if (!sessionEmail) {
     return (
       <div className="min-h-dvh bg-white flex items-center justify-center p-6">
@@ -212,14 +259,14 @@ export default function App() {
               placeholder="Seu e-mail"
               className="w-full rounded-xl border border-zinc-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-zinc-300"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
             />
             <button
               onClick={entrar}
               disabled={carregando || !email}
               className="w-full rounded-xl bg-black text-white py-3 font-medium disabled:opacity-50"
             >
-              {carregando ? 'Enviando' : 'Enviar link por e-mail'}
+              {carregando ? 'Enviando...' : 'Enviar link por e-mail'}
             </button>
           </div>
           <p className="text-xs text-center text-zinc-400 mt-4">
@@ -230,7 +277,6 @@ export default function App() {
     )
   }
 
-  // App logado
   return (
     <div className="min-h-dvh bg-[#f6f7f8]">
       <div className="sticky top-0 z-10 bg-[#f6f7f8]/90 backdrop-blur border-b border-zinc-200/60">
@@ -243,22 +289,17 @@ export default function App() {
       </div>
 
       <div className="max-w-md mx-auto p-4 space-y-4">
-        {/* Cart??o do saldo */}
         <div className="rounded-2xl bg-white shadow-sm border border-zinc-200 p-4 text-center">
           <p className="text-sm text-zinc-500">Saldo atual</p>
           {saldo > 0 ? (
             <>
-              <p className="text-xs text-zinc-500">Elaine deve para Victor</p>
-              <p className="text-5xl font-extrabold text-emerald-600">
-                {moeda(Math.abs(saldo))}
-              </p>
+              <p className="text-xs text-zinc-500">Ela deve para voce</p>
+              <p className="text-5xl font-extrabold text-emerald-600">{moeda(Math.abs(saldo))}</p>
             </>
           ) : saldo < 0 ? (
             <>
-              <p className="text-xs text-zinc-500">Victor deve para Elaine</p>
-              <p className="text-5xl font-extrabold text-orange-500">
-                {moeda(Math.abs(saldo))}
-              </p>
+              <p className="text-xs text-zinc-500">Voce deve para ela</p>
+              <p className="text-5xl font-extrabold text-orange-500">{moeda(Math.abs(saldo))}</p>
             </>
           ) : (
             <>
@@ -268,23 +309,22 @@ export default function App() {
           )}
         </div>
 
-        {/* Formul??rio */}
         <div className="rounded-2xl bg-white shadow-sm border border-zinc-200 p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <span className="text-zinc-500">???</span>
+            <span className="text-zinc-500">€</span>
             <input
               className="flex-1 rounded-xl border border-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-zinc-300"
               placeholder="0,00"
               inputMode="decimal"
               value={valor}
-              onChange={e => setValor(e.target.value)}
+              onChange={(e) => setValor(e.target.value)}
             />
           </div>
           <input
             className="w-full rounded-xl border border-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-zinc-300"
             placeholder="Nome da despesa"
             value={nome}
-            onChange={e => setNome(e.target.value)}
+            onChange={(e) => setNome(e.target.value)}
           />
 
           <div className="grid grid-cols-2 gap-3">
@@ -292,10 +332,10 @@ export default function App() {
               <p className="text-xs text-zinc-500">Tipo</p>
               <Segmented
                 value={tipo}
-                onChange={v => setTipo(v)}
+                onChange={(v) => setTipo(v)}
                 options={[
                   { value: 'Shared', label: 'Compartilhada' },
-                  { value: 'Per Person', label: 'Individual' }
+                  { value: 'Per Person', label: 'Individual' },
                 ]}
               />
             </div>
@@ -303,10 +343,10 @@ export default function App() {
               <p className="text-xs text-zinc-500">Pago por</p>
               <Segmented
                 value={pagoPor}
-                onChange={v => setPagoPor(v)}
+                onChange={(v) => setPagoPor(v)}
                 options={[
-                  { value: 'You', label: 'Voc??' },
-                  { value: 'Wife', label: 'Ela' }
+                  { value: 'You', label: 'Voce' },
+                  { value: 'Wife', label: 'Ela' },
                 ]}
               />
             </div>
@@ -337,23 +377,17 @@ export default function App() {
           </div>
 
           {itens.length > 0 && (
-            <button
-              onClick={limparTudo}
-              className="w-full text-xs text-zinc-500 underline"
-            >
+            <button onClick={limparTudo} className="w-full text-xs text-zinc-500 underline">
               Limpar tudo
             </button>
           )}
         </div>
 
-        {/* Lista */}
         <div className="space-y-3 pb-10">
           {itens.length === 0 ? (
-            <div className="text-center text-zinc-500 text-sm py-10">
-              Ainda nao há despesas
-            </div>
+            <div className="text-center text-zinc-500 text-sm py-10">Ainda nao ha despesas</div>
           ) : (
-            itens.map(e => (
+            itens.map((e) => (
               <div
                 key={e.id}
                 className="rounded-2xl bg-white shadow-sm border border-zinc-200 p-4 flex items-start justify-between"
@@ -362,7 +396,7 @@ export default function App() {
                   <div className="font-medium">{e.name}</div>
                   <div className="text-xs text-zinc-500 flex gap-2 mt-1">
                     <span>{labelPessoa(e.paid_by)}</span>
-                    <span>???</span>
+                    <span>•</span>
                     <span>{labelTipo(e.type)}</span>
                   </div>
                 </div>
