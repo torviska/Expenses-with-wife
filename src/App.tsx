@@ -35,7 +35,7 @@ const moeda = (n: number) =>
   );
 
 function labelTipo(type: TipoDespesa) {
-  return type === "Shared" ? "Compartilhada" : "Individual";
+  return type === "Shared" ? "Comp." : "Ind.";
 }
 
 function labelPessoa(p: Pessoa) {
@@ -335,8 +335,8 @@ export default function App() {
                 value={tipo}
                 onChange={(v) => setTipo(v)}
                 options={[
-                  { value: "Shared", label: "Compartilhada" },
-                  { value: "Per Person", label: "Individual" },
+                  { value: "Shared", label: "Compar." },
+                  { value: "Per Person", label: "Ind." },
                 ]}
               />
             </div>
