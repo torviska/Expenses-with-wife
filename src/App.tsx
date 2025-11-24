@@ -51,21 +51,23 @@ function Segmented<T extends string>({
   options: { value: T; label: string }[]
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2 bg-zinc-100 rounded-xl p-1">
+    <div className="flex bg-zinc-100 rounded-xl p-1 gap-2">
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
           className={[
-            'px-3 py-1 text-xs sm:text-sm rounded-lg transition whitespace-nowrap',
-            value === o.value ? 'bg-white shadow font-medium' : 'text-zinc-500',
-          ].join(' ')}
+            "flex-1 px-3 py-2 text-sm rounded-lg transition text-center whitespace-nowrap",
+            value === o.value
+              ? "bg-white shadow font-medium"
+              : "text-zinc-500",
+          ].join(" ")}
         >
           {o.label}
         </button>
       ))}
     </div>
-  )
+  );
 }
 
 // --- APP PRINCIPAL ---
