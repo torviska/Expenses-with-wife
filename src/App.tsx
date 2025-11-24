@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-// As variáveis vêm do .env (local) ou do painel do Vercel:
+// As vari??veis v??m do .env (local) ou do painel do Vercel:
 // VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
 // VITE_SUPABASE_ANON_KEY=CHAVE_ANON_PUBLIC
 // VITE_ALLOWED_EMAILS=seuemail@exemplo.com,emaildaesposa@exemplo.com
@@ -14,8 +14,8 @@ const allowedEmails = String(import.meta.env.VITE_ALLOWED_EMAILS || '')
 
 const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnon)
 
-// IMPORTANTE: os valores de tipo/pessoa continuam em inglês
-// para bater com o que já está salvo no banco (Shared / Per Person / You / Wife)
+// IMPORTANTE: os valores de tipo/pessoa continuam em ingl??s
+// para bater com o que j?? est?? salvo no banco (Shared / Per Person / You / Wife)
 
 type TipoDespesa = 'Shared' | 'Per Person'
 type Pessoa = 'You' | 'Wife'
@@ -38,7 +38,7 @@ function labelTipo(type: TipoDespesa) {
 }
 
 function labelPessoa(p: Pessoa) {
-  return p === 'You' ? 'Você' : 'Ela'
+  return p === 'You' ? 'Voc??' : 'Ela'
 }
 
 function Segmented<T extends string>({
@@ -72,7 +72,7 @@ export default function App() {
   const [pagoPor, setPagoPor] = useState<Pessoa>('You')
   const [editando, setEditando] = useState<Despesa | null>(null)
 
-  // Sessão
+  // Sess??o
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -107,7 +107,7 @@ export default function App() {
     else setItens(data as Despesa[])
   }
 
-  // Saldo (positivo: Ela deve para você; negativo: Você deve para ela)
+  // Saldo (positivo: Ela deve para voc??; negativo: Voc?? deve para ela)
   const saldo = useMemo(() => {
     let totalVoce = 0, totalEla = 0
     itens.forEach(e => {
@@ -219,7 +219,7 @@ export default function App() {
               disabled={carregando || !email}
               className="w-full rounded-xl bg-black text-white py-3 font-medium disabled:opacity-50"
             >
-              {carregando ? 'Enviando…' : 'Enviar link por e-mail'}
+              {carregando ? 'Enviando???' : 'Enviar link por e-mail'}
             </button>
           </div>
           <p className="text-xs text-center text-zinc-400 mt-4">
@@ -243,19 +243,19 @@ export default function App() {
       </div>
 
       <div className="max-w-md mx-auto p-4 space-y-4">
-        {/* Cartão do saldo */}
+        {/* Cart??o do saldo */}
         <div className="rounded-2xl bg-white shadow-sm border border-zinc-200 p-4 text-center">
           <p className="text-sm text-zinc-500">Saldo atual</p>
           {saldo > 0 ? (
             <>
-              <p className="text-xs text-zinc-500">Ela deve para você</p>
+              <p className="text-xs text-zinc-500">Ela deve para voc??</p>
               <p className="text-5xl font-extrabold text-emerald-600">
                 {moeda(Math.abs(saldo))}
               </p>
             </>
           ) : saldo < 0 ? (
             <>
-              <p className="text-xs text-zinc-500">Você deve para ela</p>
+              <p className="text-xs text-zinc-500">Voc?? deve para ela</p>
               <p className="text-5xl font-extrabold text-orange-500">
                 {moeda(Math.abs(saldo))}
               </p>
@@ -268,10 +268,10 @@ export default function App() {
           )}
         </div>
 
-        {/* Formulário */}
+        {/* Formul??rio */}
         <div className="rounded-2xl bg-white shadow-sm border border-zinc-200 p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <span className="text-zinc-500">€</span>
+            <span className="text-zinc-500">???</span>
             <input
               className="flex-1 rounded-xl border border-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-zinc-300"
               placeholder="0,00"
@@ -305,7 +305,7 @@ export default function App() {
                 value={pagoPor}
                 onChange={v => setPagoPor(v)}
                 options={[
-                  { value: 'You', label: 'Você' },
+                  { value: 'You', label: 'Voc??' },
                   { value: 'Wife', label: 'Ela' }
                 ]}
               />
@@ -350,7 +350,7 @@ export default function App() {
         <div className="space-y-3 pb-10">
           {itens.length === 0 ? (
             <div className="text-center text-zinc-500 text-sm py-10">
-              Ainda não há despesas
+              Ainda n??o h?? despesas
             </div>
           ) : (
             itens.map(e => (
@@ -362,7 +362,7 @@ export default function App() {
                   <div className="font-medium">{e.name}</div>
                   <div className="text-xs text-zinc-500 flex gap-2 mt-1">
                     <span>{labelPessoa(e.paid_by)}</span>
-                    <span>•</span>
+                    <span>???</span>
                     <span>{labelTipo(e.type)}</span>
                   </div>
                 </div>
