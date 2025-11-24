@@ -38,7 +38,7 @@ function labelTipo(type: TipoDespesa) {
 }
 
 function labelPessoa(p: Pessoa) {
-  return p === 'You' ? 'Voc??' : 'Ela'
+  return p === 'You' ? 'Victor' : 'Elaine'
 }
 
 function Segmented<T extends string>({
@@ -219,7 +219,7 @@ export default function App() {
               disabled={carregando || !email}
               className="w-full rounded-xl bg-black text-white py-3 font-medium disabled:opacity-50"
             >
-              {carregando ? 'Enviando???' : 'Enviar link por e-mail'}
+              {carregando ? 'Enviando' : 'Enviar link por e-mail'}
             </button>
           </div>
           <p className="text-xs text-center text-zinc-400 mt-4">
@@ -248,14 +248,14 @@ export default function App() {
           <p className="text-sm text-zinc-500">Saldo atual</p>
           {saldo > 0 ? (
             <>
-              <p className="text-xs text-zinc-500">Ela deve para voc??</p>
+              <p className="text-xs text-zinc-500">Elaine deve para Victor</p>
               <p className="text-5xl font-extrabold text-emerald-600">
                 {moeda(Math.abs(saldo))}
               </p>
             </>
           ) : saldo < 0 ? (
             <>
-              <p className="text-xs text-zinc-500">Voc?? deve para ela</p>
+              <p className="text-xs text-zinc-500">Victor deve para Elaine</p>
               <p className="text-5xl font-extrabold text-orange-500">
                 {moeda(Math.abs(saldo))}
               </p>
@@ -350,7 +350,7 @@ export default function App() {
         <div className="space-y-3 pb-10">
           {itens.length === 0 ? (
             <div className="text-center text-zinc-500 text-sm py-10">
-              Ainda n??o h?? despesas
+              Ainda nao há despesas
             </div>
           ) : (
             itens.map(e => (
