@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
+// URL e KEY ja configuradas no .env / Vercel
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
 const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+
+// emails autorizados
 const allowedEmails = String(import.meta.env.VITE_ALLOWED_EMAILS || '')
   .split(',')
   .map((s) => s.trim().toLowerCase())
+
+// nomes das duas pessoas (Person1 = You, Person2 = Wife)
+const person1Name = (import.meta.env.VITE_PERSON1_NAME as string) || 'Pessoa 1'
+const person2Name = (import.meta.env.VITE_PERSON2_NAME as string) || 'Pessoa 2'
 
 const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnon)
 
@@ -30,7 +37,7 @@ function labelTipo(type: TipoDespesa) {
 }
 
 function labelPessoa(p: Pessoa) {
-  return p === 'You' ? 'Voce' : 'Ela'
+  return p === 'You' ? person1Name : person2Name
 }
 
 function Segmented<T extends string>({
@@ -72,6 +79,7 @@ export default function App() {
   const [pagoPor, setPagoPor] = useState<Pessoa>('You')
   const [editando, setEditando] = useState<Despesa | null>(null)
 
+  // sessao
   useEffect(() => {
     ;(async () => {
       const { data } = await supabase.auth.getSession()
@@ -85,6 +93,7 @@ export default function App() {
     })()
   }, [])
 
+  // buscar despesas no banco
   const buscarDespesas = async () => {
     const { data, error } = await supabase
       .from('expenses')
@@ -99,6 +108,7 @@ export default function App() {
     setItens((data || []) as Despesa[])
   }
 
+  // realtime + primeira carga
   useEffect(() => {
     if (!sessionEmail) return
 
@@ -120,21 +130,22 @@ export default function App() {
     }
   }, [sessionEmail])
 
+  // saldo: positivo = person2 deve para person1
   const saldo = useMemo(() => {
-    let totalVoce = 0
-    let totalEla = 0
+    let totalP1 = 0
+    let totalP2 = 0
 
     itens.forEach((e) => {
       if (e.type === 'Shared') {
-        if (e.paid_by === 'You') totalVoce += e.amount / 2
-        else totalEla += e.amount / 2
+        if (e.paid_by === 'You') totalP1 += e.amount / 2
+        else totalP2 += e.amount / 2
       } else {
-        if (e.paid_by === 'You') totalVoce += e.amount
-        else totalEla += e.amount
+        if (e.paid_by === 'You') totalP1 += e.amount
+        else totalP2 += e.amount
       }
     })
 
-    return totalVoce - totalEla
+    return totalP1 - totalP2
   }, [itens])
 
   const podeSalvar = nome.trim() !== '' && parseValor(valor) !== null
@@ -189,7 +200,6 @@ export default function App() {
     setTipo('Shared')
     setPagoPor('You')
 
-    // garante atualizar lista mesmo se o realtime nao estiver ativo
     buscarDespesas()
   }
 
@@ -214,7 +224,11 @@ export default function App() {
 
   async function limparTudo() {
     if (!confirm('Tem certeza que deseja limpar todas as despesas?')) return
-    const { error } = await supabase.from('expenses').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    const { error } = await supabase
+      .from('expenses')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000')
+
     if (error) {
       alert(error.message)
       return
@@ -225,7 +239,7 @@ export default function App() {
   const entrar = async () => {
     const e = email.trim().toLowerCase()
     if (!allowedEmails.includes(e)) {
-      alert('Acesso restrito. Use um e-mail autorizado.')
+      alert('Acesso restrito. Use um email autorizado.')
       return
     }
 
@@ -239,13 +253,14 @@ export default function App() {
     setCarregando(false)
 
     if (error) alert(error.message)
-    else alert('Enviamos um link de acesso para o seu e-mail.')
+    else alert('Enviamos um link de acesso para o seu email.')
   }
 
   const sair = async () => {
     await supabase.auth.signOut()
   }
 
+  // tela de login
   if (!sessionEmail) {
     return (
       <div className="min-h-dvh bg-white flex items-center justify-center p-6">
@@ -256,7 +271,7 @@ export default function App() {
             <input
               type="email"
               inputMode="email"
-              placeholder="Seu e-mail"
+              placeholder="Seu email"
               className="w-full rounded-xl border border-zinc-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-zinc-300"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -266,17 +281,18 @@ export default function App() {
               disabled={carregando || !email}
               className="w-full rounded-xl bg-black text-white py-3 font-medium disabled:opacity-50"
             >
-              {carregando ? 'Enviando...' : 'Enviar link por e-mail'}
+              {carregando ? 'Enviando...' : 'Enviar link por email'}
             </button>
           </div>
           <p className="text-xs text-center text-zinc-400 mt-4">
-            Somente e-mails autorizados podem entrar.
+            Somente emails autorizados podem entrar.
           </p>
         </div>
       </div>
     )
   }
 
+  // app logado
   return (
     <div className="min-h-dvh bg-[#f6f7f8]">
       <div className="sticky top-0 z-10 bg-[#f6f7f8]/90 backdrop-blur border-b border-zinc-200/60">
@@ -289,31 +305,40 @@ export default function App() {
       </div>
 
       <div className="max-w-md mx-auto p-4 space-y-4">
+        {/* saldo */}
         <div className="rounded-2xl bg-white shadow-sm border border-zinc-200 p-4 text-center">
           <p className="text-sm text-zinc-500">Saldo atual</p>
           {saldo > 0 ? (
             <>
-              <p className="text-xs text-zinc-500">Ela deve para voce</p>
-              <p className="text-5xl font-extrabold text-emerald-600">{moeda(Math.abs(saldo))}</p>
+              <p className="text-xs text-zinc-500">
+                {person2Name} deve para {person1Name}
+              </p>
+              <p className="text-5xl font-extrabold text-emerald-600">
+                {moeda(Math.abs(saldo))}
+              </p>
             </>
           ) : saldo < 0 ? (
             <>
-              <p className="text-xs text-zinc-500">Voce deve para ela</p>
-              <p className="text-5xl font-extrabold text-orange-500">{moeda(Math.abs(saldo))}</p>
+              <p className="text-xs text-zinc-500">
+                {person1Name} deve para {person2Name}
+              </p>
+              <p className="text-5xl font-extrabold text-orange-500">
+                {moeda(Math.abs(saldo))}
+              </p>
             </>
           ) : (
             <>
-              <p className="text-xs text-zinc-500">Tudo certo!</p>
+              <p className="text-xs text-zinc-500">Tudo certo entre {person1Name} e {person2Name}</p>
               <p className="text-5xl font-extrabold text-zinc-400">{moeda(0)}</p>
             </>
           )}
         </div>
 
+        {/* formulario */}
         <div className="rounded-2xl bg-white shadow-sm border border-zinc-200 p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="text-zinc-500">€</span>
+          <div>
             <input
-              className="flex-1 rounded-xl border border-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-zinc-300"
+              className="w-full rounded-xl border border-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-zinc-300"
               placeholder="0,00"
               inputMode="decimal"
               value={valor}
@@ -345,8 +370,8 @@ export default function App() {
                 value={pagoPor}
                 onChange={(v) => setPagoPor(v)}
                 options={[
-                  { value: 'You', label: 'Voce' },
-                  { value: 'Wife', label: 'Ela' },
+                  { value: 'You', label: person1Name },
+                  { value: 'Wife', label: person2Name },
                 ]}
               />
             </div>
@@ -383,6 +408,7 @@ export default function App() {
           )}
         </div>
 
+        {/* lista */}
         <div className="space-y-3 pb-10">
           {itens.length === 0 ? (
             <div className="text-center text-zinc-500 text-sm py-10">Ainda nao ha despesas</div>
@@ -394,10 +420,8 @@ export default function App() {
               >
                 <div>
                   <div className="font-medium">{e.name}</div>
-                  <div className="text-xs text-zinc-500 flex gap-2 mt-1">
-                    <span>{labelPessoa(e.paid_by)}</span>
-                    <span>•</span>
-                    <span>{labelTipo(e.type)}</span>
+                  <div className="text-xs text-zinc-500 mt-1">
+                    {labelPessoa(e.paid_by)} - {labelTipo(e.type)}
                   </div>
                 </div>
                 <div className="text-right">
