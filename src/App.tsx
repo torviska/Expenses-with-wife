@@ -275,7 +275,7 @@ export default function App() {
         {/* Header */}
         <header className="flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-semibold">Despesas Compartilhadas</h1>
+            <h1 className="text-xl font-semibold">Despesas Compartilhadas V2</h1>
             <p className="text-xs text-zinc-500">
               Entre {person1Name} e {person2Name}
             </p>
@@ -335,7 +335,7 @@ export default function App() {
                 value={tipo}
                 onChange={(v) => setTipo(v)}
                 options={[
-                  { value: "Shared", label: "Compar." },
+                  { value: "Shared", label: "Compart." },
                   { value: "Per Person", label: "Ind." },
                 ]}
               />
