@@ -168,7 +168,8 @@ export default function App() {
         amount: numero,
         type: tipo,
         paid_by: pagoPor,
-        user_id: sessionEmail,
+        // não usamos mais user_id (coluna é uuid)
+        user_id: null,
       });
 
       if (error) {
