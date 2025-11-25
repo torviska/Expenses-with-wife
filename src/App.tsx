@@ -74,7 +74,6 @@ function Segmented<T extends string>({
 export default function App() {
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [email, setEmail] = useState("");
-  const [carregando, setCarregando] = useState(false);
 
   const [itens, setItens] = useState<Despesa[]>([]);
   const [nome, setNome] = useState("");
@@ -83,52 +82,35 @@ export default function App() {
   const [pagoPor, setPagoPor] = useState<Pessoa>("You");
   const [editando, setEditando] = useState<Despesa | null>(null);
 
-  // ---- LOGIN / SESSÃO ----
-  async function enviarMagicLink() {
-    if (!email) return alert("Digite seu e-mail.");
-    if (!allowedEmails.includes(email.toLowerCase())) {
+  // ---- LOGIN / SESSÃO (LOCAL, SEM MAGIC LINK) ----
+  function entrar() {
+    if (!email) {
+      alert("Digite seu e-mail.");
+      return;
+    }
+
+    const normalizado = email.toLowerCase();
+
+    if (!allowedEmails.includes(normalizado)) {
       alert("Este e-mail não tem acesso ao app.");
       return;
     }
 
-    setCarregando(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin },
-    });
-    setCarregando(false);
-
-    if (error) alert(error.message);
-    else alert("Enviamos um link de acesso para o seu e-mail.");
+    setSessionEmail(normalizado);
+    localStorage.setItem("sessionEmail", normalizado);
+    setEmail("");
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      const e = data.session?.user.email ?? null;
-      if (e && allowedEmails.includes(e.toLowerCase())) {
-        setSessionEmail(e);
-      }
-    });
-
-    const { data: subscription } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        const e = session?.user?.email ?? null;
-        if (e && allowedEmails.includes(e.toLowerCase())) {
-          setSessionEmail(e);
-        } else {
-          setSessionEmail(null);
-        }
-      }
-    );
-
-    return () => {
-      subscription.subscription.unsubscribe();
-    };
+    const saved = localStorage.getItem("sessionEmail");
+    if (saved && allowedEmails.includes(saved.toLowerCase())) {
+      setSessionEmail(saved);
+    }
   }, []);
 
-  async function sair() {
-    await supabase.auth.signOut();
+  function sair() {
     setSessionEmail(null);
+    localStorage.removeItem("sessionEmail");
   }
 
   // ---- SUPABASE: LISTAR ----
@@ -253,11 +235,10 @@ export default function App() {
           />
 
           <button
-            onClick={enviarMagicLink}
-            disabled={carregando}
-            className="bg-zinc-900 text-white p-3 rounded-xl w-full text-sm font-medium disabled:opacity-50"
+            onClick={entrar}
+            className="bg-zinc-900 text-white p-3 rounded-xl w-full text-sm font-medium"
           >
-            {carregando ? "Enviando..." : "Enviar link por e-mail"}
+            Entrar
           </button>
 
           <p className="text-xs text-zinc-400 text-center">
