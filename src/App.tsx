@@ -26,6 +26,7 @@ type Despesa = {
   paid_by: Pessoa;
   user_id: string | null;
   created_at: string;
+  billing_month: string; // YYYY-MM-DD (primeiro dia do mês)
 };
 
 // --- Helpers ---
@@ -40,6 +41,15 @@ function labelTipo(type: TipoDespesa) {
 
 function labelPessoa(p: Pessoa) {
   return p === "You" ? person1Name : person2Name;
+}
+
+function currentMonthKey() {
+  return new Date().toISOString().slice(0, 7); // "YYYY-MM"
+}
+
+function formatMonthLabel(ym: string) {
+  const [y, m] = ym.split("-");
+  return `${m}/${y}`;
 }
 
 // --- Componente Segmented (corrigido) ---
@@ -81,6 +91,7 @@ export default function App() {
   const [tipo, setTipo] = useState<TipoDespesa>("Shared");
   const [pagoPor, setPagoPor] = useState<Pessoa>("You");
   const [editando, setEditando] = useState<Despesa | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => currentMonthKey());
 
   // ---- LOGIN / SESSÃO (LOCAL, SEM MAGIC LINK) ----
   function entrar() {
@@ -114,10 +125,11 @@ export default function App() {
   }
 
   // ---- SUPABASE: LISTAR ----
-  async function carregar() {
+  async function carregar(month: string = selectedMonth) {
     const { data, error } = await supabase
       .from("expenses")
       .select("*")
+      .eq("billing_month", `${month}-01`)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -129,8 +141,8 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (sessionEmail) carregar();
-  }, [sessionEmail]);
+    if (sessionEmail) carregar(selectedMonth);
+  }, [sessionEmail, selectedMonth]);
 
   // ---- SUPABASE: ADICIONAR / EDITAR ----
   async function salvar() {
@@ -153,6 +165,7 @@ export default function App() {
           amount: numero,
           type: tipo,
           paid_by: pagoPor,
+          billing_month: `${selectedMonth}-01`,
         })
         .eq("id", editando.id);
 
@@ -168,8 +181,8 @@ export default function App() {
         amount: numero,
         type: tipo,
         paid_by: pagoPor,
-        // não usamos mais user_id (coluna é uuid)
         user_id: null,
+        billing_month: `${selectedMonth}-01`,
       });
 
       if (error) {
@@ -191,6 +204,27 @@ export default function App() {
       alert(error.message);
       return;
     }
+    carregar();
+  }
+
+  async function apagarMes() {
+    const ok = window.confirm(
+      `Tem certeza que deseja apagar TODAS as despesas de ${formatMonthLabel(
+        selectedMonth
+      )}?`
+    );
+    if (!ok) return;
+
+    const { error } = await supabase
+      .from("expenses")
+      .delete()
+      .eq("billing_month", `${selectedMonth}-01`);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
     carregar();
   }
 
@@ -266,6 +300,25 @@ export default function App() {
             Sair
           </button>
         </header>
+
+        {/* Seletor de mês + limpar mês */}
+        <section className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
+            <span className="text-zinc-500">Mês</span>
+            <input
+              type="month"
+              className="border border-zinc-300 rounded-lg px-2 py-1 text-xs"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+            />
+          </div>
+          <button
+            onClick={apagarMes}
+            className="text-xs text-red-600 underline"
+          >
+            Apagar mês
+          </button>
+        </section>
 
         {/* Saldo */}
         <section className="bg-white rounded-2xl p-5 shadow-sm border border-zinc-200 text-center space-y-1">
